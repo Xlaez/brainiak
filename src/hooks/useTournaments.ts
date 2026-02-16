@@ -1,5 +1,3 @@
-// src/hooks/useTournaments.ts
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TournamentService } from "@/services/tournament.service";
 import type {

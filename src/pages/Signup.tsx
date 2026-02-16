@@ -63,7 +63,7 @@ export default function Signup() {
         if (profile) {
           setProfile(profile);
           toast.success("Account created! Welcome to Brainiak.");
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/profile" });
         }
       }
     } catch (error: any) {

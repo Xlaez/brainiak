@@ -1,5 +1,3 @@
-// src/components/tournaments/TournamentStandings.tsx
-
 import { motion } from "framer-motion";
 import { Trophy, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import type { Tournament } from "@/types/tournament.types";

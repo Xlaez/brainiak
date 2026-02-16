@@ -83,8 +83,8 @@ const tournamentsRoute = createRoute({
 });
 
 const tournamentDetailRoute = createRoute({
-  getParentRoute: () => tournamentsRoute,
-  path: "/$tournamentId",
+  getParentRoute: () => rootRoute,
+  path: "/tournaments/$tournamentId",
   component: TournamentDetail,
 });
 
@@ -113,7 +113,8 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   playRoute,
   gameRoute,
-  tournamentsRoute.addChildren([tournamentDetailRoute]),
+  tournamentsRoute,
+  tournamentDetailRoute,
   leaderboardRoute,
   profileBaseRoute,
   profileDetailRoute,

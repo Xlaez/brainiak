@@ -1,5 +1,3 @@
-// src/components/leaderboard/LeaderboardSkeleton.tsx
-
 export function LeaderboardSkeleton() {
   return (
     <div className="space-y-3 animate-pulse">

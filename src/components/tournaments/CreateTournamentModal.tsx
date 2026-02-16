@@ -1,5 +1,3 @@
-// src/components/tournaments/CreateTournamentModal.tsx
-
 import { useState, type FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Trophy, Clock, Info } from "lucide-react";

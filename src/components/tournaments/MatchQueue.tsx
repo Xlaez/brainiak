@@ -1,5 +1,3 @@
-// src/components/tournaments/MatchQueue.tsx
-
 import { motion } from "framer-motion";
 import { Check, Clock, Play, Trophy } from "lucide-react";
 import type { Tournament, TournamentMatch } from "@/types/tournament.types";

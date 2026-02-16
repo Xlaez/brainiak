@@ -1,5 +1,3 @@
-// src/components/tournaments/TournamentLobby.tsx
-
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Users, PlayCircle, Loader2, ChevronRight } from "lucide-react";
@@ -17,6 +15,7 @@ import {
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 import { MatchQueue } from "./MatchQueue";
 import { Progress } from "../ui/progress";
+import { toast } from "sonner";
 
 interface TournamentLobbyProps {
   tournament: Tournament;
@@ -78,6 +77,18 @@ export function TournamentLobby({
       }
     }
   }, [nextMatch, profile, navigate]);
+
+  const handleResumeMatch = async () => {
+    if (!nextMatch || !tournament.$id) return;
+
+    try {
+      await TournamentService.resumeMatch(tournament.$id, nextMatch.matchId);
+      toast.success("Match verified! Please wait...");
+      setTimeout(onRefresh, 1000);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to resume match");
+    }
+  };
 
   const progress = TournamentService.getTournamentProgress(tournament);
 
@@ -267,6 +278,16 @@ export function TournamentLobby({
               className="w-full bg-white hover:bg-gray-100 text-green-600 font-bold py-4 rounded-xl text-lg"
             >
               Join Match Now
+              <ChevronRight className="w-5 h-5 ml-2" />
+            </Button>
+          )}
+
+          {nextMatch.status === "active" && !nextMatch.gameRoomId && (
+            <Button
+              onClick={handleResumeMatch}
+              className="w-full bg-white hover:bg-gray-100 text-green-600 font-bold py-4 rounded-xl text-lg animate-pulse"
+            >
+              Match Ready - Click to Enter
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           )}

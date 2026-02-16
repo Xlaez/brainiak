@@ -1,5 +1,3 @@
-// src/services/tournament.service.ts
-
 import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query, ID } from "appwrite";
 import type { Models } from "appwrite";
@@ -485,7 +483,7 @@ export class TournamentService {
         gameRoomId,
         {
           roomId: gameRoomId,
-          gameType: "tournament",
+          gameType: "battle",
           status: "waiting",
           player1Id: player1.userId,
           player2Id: player2.userId,
@@ -507,9 +505,15 @@ export class TournamentService {
         },
       );
 
-      // Update match with game room ID
+      // Update match with game room ID and ensure status is active
       const updatedMatches = tournament.matches.map((m) =>
-        m.matchId === match.matchId ? { ...m, gameRoomId: gameRoom.$id } : m,
+        m.matchId === match.matchId
+          ? {
+              ...m,
+              gameRoomId: gameRoom.$id,
+              status: "active" as const, // Ensure status is active to prevent overwrite
+            }
+          : m,
       );
 
       await databases.updateDocument(
@@ -525,6 +529,37 @@ export class TournamentService {
       return gameRoom.$id;
     } catch (error) {
       console.error("Error creating match game room:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resume an active match that is missing a game room (recovery)
+   */
+  static async resumeMatch(
+    tournamentId: string,
+    matchId: string,
+  ): Promise<void> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+      if (!tournament) throw new Error("Tournament not found");
+
+      const match = tournament.matches.find((m) => m.matchId === matchId);
+      if (!match) throw new Error("Match not found");
+
+      if (match.status !== "active") {
+        throw new Error("Match is not active");
+      }
+
+      if (match.gameRoomId) {
+        // Already has room, nothing to do
+        return;
+      }
+
+      // Create room for this active match
+      await this.createMatchGameRoom(tournamentId, match, tournament);
+    } catch (error) {
+      console.error("Error resuming match:", error);
       throw error;
     }
   }

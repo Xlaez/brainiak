@@ -1,7 +1,5 @@
-// src/hooks/useGame.ts
-
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { GameService } from "@/services/game.service";
 import { client, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import type { GameState, GameAnswer } from "@/types/game.types";
@@ -15,6 +13,7 @@ const REVEAL_DELAY = 1500; // 1.5 seconds to show correct answer
 export function useGame(gameRoomId: string) {
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(QUESTION_TIME_LIMIT);
@@ -31,11 +30,22 @@ export function useGame(gameRoomId: string) {
   });
 
   // Fetch questions
-  const { data: questions } = useQuery({
+  const { data: questions, refetch: refetchQuestions } = useQuery({
     queryKey: ["gameQuestions", gameRoom?.questions],
     queryFn: () => GameService.getGameQuestions(gameRoom!.questions),
-    enabled: !!gameRoom?.questions,
+    enabled: !!gameRoom?.questions && gameRoom.questions.length > 0,
   });
+
+  // Refetch questions when game room updates (e.g. after start)
+  useEffect(() => {
+    if (
+      gameRoom?.questions &&
+      gameRoom.questions.length > 0 &&
+      (!questions || questions.length === 0)
+    ) {
+      refetchQuestions();
+    }
+  }, [gameRoom?.questions, questions, refetchQuestions]);
 
   // Initialize game state and fetch player details
   useEffect(() => {
@@ -177,6 +187,12 @@ export function useGame(gameRoomId: string) {
       `databases.${DATABASE_ID}.collections.${COLLECTIONS.GAME_ROOMS}.documents.${gameRoomId}`,
       (response) => {
         const updatedRoom = response.payload as any;
+
+        // Invalidate queries to ensure fresh data
+        queryClient.invalidateQueries({ queryKey: ["gameRoom", gameRoomId] });
+        if (updatedRoom.questions?.length > 0) {
+          queryClient.invalidateQueries({ queryKey: ["gameQuestions"] });
+        }
 
         setGameState((prev) => {
           if (!prev) return null;

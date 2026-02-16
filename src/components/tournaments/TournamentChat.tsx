@@ -1,5 +1,3 @@
-// src/components/tournaments/TournamentChat.tsx
-
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, MessageCircle, Loader2 } from "lucide-react";

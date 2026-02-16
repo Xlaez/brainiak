@@ -1,5 +1,3 @@
-// src/components/game/GameResultModal.tsx
-
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star, ArrowRight, Home, RefreshCcw } from "lucide-react";

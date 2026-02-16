@@ -1,5 +1,3 @@
-// src/pages/Tournaments.tsx
-
 import { useState, type ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { Plus, Search, Trophy, X } from "lucide-react";

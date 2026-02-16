@@ -1,5 +1,3 @@
-// src/types/tournament.types.ts
-
 import type { Models } from "appwrite";
 
 export type TournamentStatus = "waiting" | "active" | "completed" | "cancelled";

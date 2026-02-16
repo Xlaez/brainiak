@@ -1,5 +1,3 @@
-// src/components/leaderboard/UserRankCard.tsx
-
 import { motion } from "framer-motion";
 import { TrendingUp, Users, Award } from "lucide-react";
 import type { UserRankInfo } from "@/types/leaderboard.types";

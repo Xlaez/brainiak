@@ -1,5 +1,3 @@
-// src/services/game.service.ts
-
 import { databases, DATABASE_ID, COLLECTIONS } from "@/lib/appwrite";
 import { Query, ID } from "appwrite";
 import type {
@@ -514,16 +512,37 @@ export class GameService {
   }
 
   /**
-   * Start game (set status to active and startTime)
+   * Start game (set status to active, generate questions, and set startTime)
    */
   static async startGame(gameRoomId: string): Promise<void> {
     try {
+      const room = await this.getGameRoom(gameRoomId);
+      if (!room) throw new Error("Room not found");
+
+      // Generate questions if not already present
+      let questions = room.questions || [];
+      if (questions.length === 0) {
+        // Fetch questions from Appwrite
+        const questionCount = 10;
+
+        // Use average of players' tiers or just find by subject
+        // Just fetching random questions by subject for now
+        const questionsResponse = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTIONS.QUESTIONS,
+          [Query.equal("subject", room.subject), Query.limit(questionCount)],
+        );
+
+        questions = questionsResponse.documents.map((q) => q.$id);
+      }
+
       await databases.updateDocument(
         DATABASE_ID,
         COLLECTIONS.GAME_ROOMS,
         gameRoomId,
         {
           status: "active",
+          questions: questions,
           startTime: new Date().toISOString(),
         },
       );

@@ -37,12 +37,12 @@ export default function Login() {
         if (profile) {
           setProfile(profile);
           toast.success("Welcome back to Brainiak!");
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/play" });
         } else {
           // If no profile exists, maybe redirect to profile creation?
           // For now just allow them in
           toast.info("Logged in! Please complete your profile.");
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/play" });
         }
       }
     } catch (error: any) {

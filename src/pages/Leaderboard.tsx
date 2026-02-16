@@ -1,5 +1,3 @@
-// src/pages/Leaderboard.tsx
-
 import { useState, useMemo } from "react";
 import { Search, Filter, X, Trophy, Target, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";

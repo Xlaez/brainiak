@@ -1,5 +1,3 @@
-// src/hooks/useLeaderboard.ts
-
 import { useQuery } from "@tanstack/react-query";
 import { LeaderboardService } from "@/services/leaderboard.service";
 import type {

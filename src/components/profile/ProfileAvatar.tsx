@@ -1,5 +1,3 @@
-// src/components/profile/ProfileAvatar.tsx
-
 import { useState } from "react";
 import { ProfileService } from "@/services/profile.service";
 import { getTierColor } from "@/lib/profile.utils";

@@ -1,5 +1,3 @@
-// scripts/setup-appwrite.ts
-
 import {
   Client,
   Databases,

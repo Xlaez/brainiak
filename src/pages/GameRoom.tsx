@@ -1,5 +1,3 @@
-// src/pages/GameRoom.tsx
-
 import { useParams } from "@tanstack/react-router";
 import { useGame } from "@/hooks/useGame";
 import { PlayerCard } from "@/components/game/PlayerCard";

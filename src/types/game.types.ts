@@ -4,7 +4,7 @@ import type { Models } from "appwrite";
 
 export interface GameRoom extends Models.Document {
   roomId: string;
-  gameType: "classic" | "control" | "battle" | "tournament";
+  gameType: "classic" | "control" | "battle";
   status: "waiting" | "active" | "completed" | "cancelled";
   player1Id: string;
   player2Id: string | null;

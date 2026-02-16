@@ -1,5 +1,3 @@
-// src/types/leaderboard.types.ts
-
 export interface LeaderboardPlayer {
   userId: string;
   username: string;

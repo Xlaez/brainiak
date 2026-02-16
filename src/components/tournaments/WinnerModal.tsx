@@ -1,5 +1,3 @@
-// src/components/tournaments/WinnerModal.tsx
-
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Share2, Home, PlayCircle, X } from "lucide-react";

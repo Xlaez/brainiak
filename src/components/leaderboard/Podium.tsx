@@ -1,5 +1,3 @@
-// src/components/leaderboard/Podium.tsx
-
 import { motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import type { LeaderboardPlayer } from "@/types/leaderboard.types";

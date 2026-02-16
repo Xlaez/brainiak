@@ -1,5 +1,3 @@
-// src/components/leaderboard/PlayerRow.tsx
-
 import { motion } from "framer-motion";
 import { Trophy, Target, TrendingUp } from "lucide-react";
 import type { LeaderboardPlayer } from "@/types/leaderboard.types";
