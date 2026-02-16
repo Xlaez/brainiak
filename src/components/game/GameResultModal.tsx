@@ -177,7 +177,10 @@ export function GameResultModal({
             </div>
 
             {/* Tier Status */}
-            <div className="flex items-center gap-4 bg-slate-900 text-white p-5 rounded-[24px] mb-10 shadow-lg">
+            <div
+              onClick={() => navigate({ to: "/profile" })}
+              className="flex items-center gap-4 bg-slate-900 text-white p-5 rounded-[24px] mb-10 shadow-lg cursor-pointer hover:bg-slate-800 transition-colors group"
+            >
               <div
                 className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${getTierColor(userNewTier)} flex items-center justify-center text-xl font-black`}
               >
@@ -194,6 +197,7 @@ export function GameResultModal({
               <motion.div
                 animate={{ x: [0, 5, 0] }}
                 transition={{ repeat: Infinity, duration: 2 }}
+                className="group-hover:text-blue-400 transition-colors"
               >
                 <ArrowRight className="w-5 h-5 text-slate-600" />
               </motion.div>

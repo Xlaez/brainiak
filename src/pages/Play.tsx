@@ -9,26 +9,30 @@ import { WaitingRoom } from "@/components/play/WaitingRoom";
 import { BattleRoomModal } from "@/components/play/BattleRoomModal";
 import { Button } from "@/components/ui/button";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
-import { useBattleRoom } from "@/hooks/useBattleRoom";
-import { useAuthStore } from "@/stores/authStore";
-import type { GameMode, Subject, Duration } from "@/types/play.types";
+import type {
+  GameMode,
+  Subject,
+  Duration,
+  GameConfiguration,
+} from "@/types/play.types";
 import { toast } from "sonner";
 
 export default function Play() {
-  const { user } = useAuthStore();
   const [selectedMode, setSelectedMode] = useState<GameMode | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<Duration | null>(
     null,
   );
   const [selectedTier, setSelectedTier] = useState<number | null>(null);
-  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
 
-  // Matchmaking hook
+  // Modal states
+  const [battleModalMode, setBattleModalMode] = useState<"create" | "join">(
+    "create",
+  );
+  const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
+
+  // Matchmaking hook (for Classic and Control modes)
   const matchmaking = useMatchmaking();
-
-  // Battle room hook
-  const battle = useBattleRoom(matchmaking.config?.inviteCode);
 
   const canStartSearch = useMemo(() => {
     return (
@@ -45,91 +49,24 @@ export default function Play() {
       return;
     }
 
-    const config = {
+    const config: GameConfiguration = {
       mode: selectedMode!,
       subject: selectedSubject!,
       duration: selectedDuration!,
       selectedTier: selectedMode === "control" ? selectedTier! : undefined,
     };
 
-    // Clear previous battle states if any
-    if (battle.room) {
-      await battle.leaveRoom.mutateAsync(battle.room.$id);
-    }
-
     if (selectedMode === "battle") {
-      try {
-        await battle.createRoom.mutateAsync(config);
-      } catch (e: any) {
-        toast.error(e.message || "Failed to create battle room");
-      }
+      setBattleModalMode("create");
+      setIsBattleModalOpen(true);
     } else {
       matchmaking.joinQueue(config);
     }
   };
 
-  const handleCancel = async () => {
-    if (matchmaking.isSearching) {
-      await matchmaking.cancelSearch();
-    }
-    if (battle.room) {
-      try {
-        await battle.leaveRoom.mutateAsync(battle.room.$id);
-      } catch (e) {
-        console.error("Error cancelling battle:", e);
-      }
-    }
-    // Deep reset everything
-    matchmaking.reset();
-    battle.createRoom.reset();
-    battle.joinRoom.reset();
-  };
-
-  const handleJoinBattle = async (code: string) => {
-    try {
-      // Reset matchmaking if we were searching
-      matchmaking.reset();
-      await battle.joinRoom.mutateAsync(code);
-      setIsJoinModalOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to join battle room");
-    }
-  };
-
-  const isSearching =
-    matchmaking.isSearching ||
-    battle.createRoom.isPending ||
-    battle.joinRoom.isPending ||
-    !!battle.room;
-
-  const currentBattleRoom = battle.room;
-  const opponentJoined = !!currentBattleRoom?.opponentId;
-  const isHost = currentBattleRoom?.hostId === user?.$id;
-  const myReadyStatus = isHost
-    ? currentBattleRoom?.hostReady
-    : currentBattleRoom?.opponentReady;
-  const bothReady =
-    currentBattleRoom?.hostReady && currentBattleRoom?.opponentReady;
-
-  const handleReady = async () => {
-    if (!currentBattleRoom) return;
-    try {
-      await battle.setReady.mutateAsync({
-        roomDocId: currentBattleRoom.$id,
-        isReady: !myReadyStatus,
-      });
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update ready status");
-    }
-  };
-
-  const handleStartBattle = async () => {
-    if (!currentBattleRoom || !bothReady) return;
-    try {
-      await battle.startGame.mutateAsync(currentBattleRoom.$id);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to start battle");
-    }
+  const handleJoinClick = () => {
+    setBattleModalMode("join");
+    setIsBattleModalOpen(true);
   };
 
   return (
@@ -213,7 +150,7 @@ export default function Play() {
                   delay={0.2}
                 />
                 <Button
-                  onClick={() => setIsJoinModalOpen(true)}
+                  onClick={handleJoinClick}
                   variant="ghost"
                   className="w-full h-14 rounded-2xl font-black uppercase text-[10px] tracking-widest text-slate-400 hover:text-orange-500 hover:bg-orange-500/5 transition-all"
                 >
@@ -293,47 +230,33 @@ export default function Play() {
           )}
         </AnimatePresence>
 
-        {/* Global Waiting/Matchmaking Screen */}
+        {/* Global Matchmaking Screen (for Classic/Control) */}
         <WaitingRoom
-          isSearching={isSearching}
+          isSearching={matchmaking.isSearching}
           config={{
-            mode: selectedMode!,
-            subject: selectedSubject!,
-            duration: selectedDuration!,
+            mode: selectedMode || "classic",
+            subject: selectedSubject || "general_knowledge",
+            duration: selectedDuration || 300,
           }}
           timeElapsed={matchmaking.timeElapsed}
           progress={matchmaking.progress}
-          onCancel={handleCancel}
-          inviteCode={currentBattleRoom?.inviteCode}
-          opponentJoined={opponentJoined}
-          isReady={myReadyStatus}
-          onReady={handleReady}
+          onCancel={() => matchmaking.cancelSearch()}
         />
 
-        {/* Start Button for Battle Host */}
-        <AnimatePresence>
-          {bothReady && isHost && isSearching && (
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[300] w-full max-w-sm px-4"
-            >
-              <Button
-                onClick={handleStartBattle}
-                className="w-full h-16 bg-gradient-to-r from-orange-500 to-red-600 text-white font-black uppercase text-sm tracking-[0.2em] rounded-2xl shadow-2xl shadow-orange-500/40 hover:scale-[1.05] transition-all animate-bounce"
-              >
-                Initiate Battle
-              </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+        {/* Private Battle Room Modal */}
         <BattleRoomModal
-          isOpen={isJoinModalOpen}
-          onClose={() => setIsJoinModalOpen(false)}
-          onJoin={handleJoinBattle}
-          isLoading={battle.joinRoom.isPending}
+          isOpen={isBattleModalOpen}
+          onClose={() => setIsBattleModalOpen(false)}
+          mode={battleModalMode}
+          config={
+            selectedMode === "battle"
+              ? {
+                  mode: "battle",
+                  subject: selectedSubject!,
+                  duration: selectedDuration!,
+                }
+              : undefined
+          }
         />
       </div>
     </div>

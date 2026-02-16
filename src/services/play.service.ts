@@ -246,7 +246,7 @@ export class PlayService {
     try {
       const inviteCode = this.generateInviteCode();
 
-      return await databases.createDocument<BattleRoom>(
+      const room = await databases.createDocument<BattleRoom>(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
         ID.unique(),
@@ -256,15 +256,21 @@ export class PlayService {
           hostId,
           hostUsername,
           hostTier,
+          opponentId: null,
+          opponentUsername: null,
+          opponentTier: null,
           subject: config.subject,
           duration: config.duration,
           status: "waiting",
           hostReady: false,
           opponentReady: false,
+          gameRoomId: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       );
+
+      return room;
     } catch (error) {
       console.error("Error creating battle room:", error);
       throw new Error("Failed to create battle room");
@@ -286,30 +292,43 @@ export class PlayService {
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
         [
-          Query.equal("inviteCode", inviteCode.toUpperCase()),
-          Query.equal("status", "waiting"),
+          Query.equal("inviteCode", inviteCode.toUpperCase().trim()),
           Query.limit(1),
         ],
       );
 
       if (rooms.total === 0) {
-        throw new Error("Room not found or already started");
+        throw new Error("Invalid room code. Please check and try again.");
       }
 
       const room = rooms.documents[0];
 
+      // Validate room state
+      if (room.status === "starting" || room.status === "active") {
+        throw new Error("This game has already started.");
+      }
+
+      if (room.status === "cancelled") {
+        throw new Error("This room has been cancelled.");
+      }
+
       // Check if user is the host
       if (room.hostId === userId) {
-        throw new Error("You are already the host of this room");
+        throw new Error("You cannot join your own room.");
       }
 
       // Check if room already has opponent
-      if (room.opponentId) {
-        throw new Error("Room is full");
+      if (room.opponentId && room.opponentId !== userId) {
+        throw new Error("This room is full.");
+      }
+
+      // If opponent is rejoining (same userId), don't update
+      if (room.opponentId === userId) {
+        return room;
       }
 
       // Update room with opponent
-      return await databases.updateDocument<BattleRoom>(
+      const updatedRoom = await databases.updateDocument<BattleRoom>(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
         room.$id,
@@ -320,7 +339,9 @@ export class PlayService {
           updatedAt: new Date().toISOString(),
         },
       );
-    } catch (error: any) {
+
+      return updatedRoom;
+    } catch (error) {
       console.error("Error joining battle room:", error);
       throw error;
     }
@@ -330,28 +351,41 @@ export class PlayService {
    * Set player ready status in battle room
    */
   static async setReady(
-    documentId: string,
+    battleRoomId: string,
     userId: string,
     isReady: boolean,
-  ): Promise<void> {
+  ): Promise<BattleRoom> {
     try {
       const room = await databases.getDocument<BattleRoom>(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
-        documentId,
+        battleRoomId,
       );
 
-      const isHost = room.hostId === userId;
+      if (!room) {
+        throw new Error("Battle room not found");
+      }
 
-      await databases.updateDocument(
+      // Determine if user is host or opponent
+      const isHost = room.hostId === userId;
+      const isOpponent = room.opponentId === userId;
+
+      if (!isHost && !isOpponent) {
+        throw new Error("You are not a participant in this room");
+      }
+
+      // Update ready status
+      const updatedRoom = await databases.updateDocument<BattleRoom>(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
-        documentId,
+        battleRoomId,
         {
           [isHost ? "hostReady" : "opponentReady"]: isReady,
           updatedAt: new Date().toISOString(),
         },
       );
+
+      return updatedRoom;
     } catch (error) {
       console.error("Error setting ready status:", error);
       throw new Error("Failed to update ready status");
@@ -359,36 +393,42 @@ export class PlayService {
   }
 
   /**
-   * Leave or cancel a battle room
+   * Start battle game when both players are ready
+   * CRITICAL: Only ONE player should call this (the one who readies last)
    */
-  static async leaveBattleRoom(documentId: string): Promise<void> {
-    try {
-      await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.BATTLE_ROOMS,
-        documentId,
-        { status: "cancelled", updatedAt: new Date().toISOString() },
-      );
-    } catch (error) {
-      console.error("Error leaving battle room:", error);
-      throw new Error("Failed to leave battle room");
-    }
-  }
-
-  /**
-   * Start game when both players are ready
-   */
-  static async startBattleGame(documentId: string): Promise<string> {
+  static async startBattleGame(battleRoomId: string): Promise<string> {
     try {
       const room = await databases.getDocument<BattleRoom>(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
-        documentId,
+        battleRoomId,
       );
 
+      // Validate both players are ready
       if (!room.hostReady || !room.opponentReady) {
-        throw new Error("Both players must be ready");
+        throw new Error("Both players must be ready to start");
       }
+
+      // Validate opponent has joined
+      if (!room.opponentId) {
+        throw new Error("Waiting for opponent to join");
+      }
+
+      // Check if game already created (prevent duplicate creation)
+      if (room.gameRoomId) {
+        return room.gameRoomId;
+      }
+
+      // Update battle room status to "starting" FIRST to prevent race condition
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.BATTLE_ROOMS,
+        battleRoomId,
+        {
+          status: "starting",
+          updatedAt: new Date().toISOString(),
+        },
+      );
 
       // 1. Get random questions for the game
       const questionsResponse = await databases.listDocuments(
@@ -416,29 +456,56 @@ export class PlayService {
           player2Id: room.opponentId,
           player1Tier: room.hostTier,
           player2Tier: room.opponentTier,
-          subject: room.subject,
-          duration: room.duration,
-          questions: questionIds,
           player1Score: 0,
           player2Score: 0,
           currentQuestionIndex: 0,
+          questions: questionIds,
+          subject: room.subject,
+          duration: room.duration,
+          startTime: null,
+          endTime: null,
+          winnerId: null,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
       );
 
-      // Update battle room status
+      // Update battle room with game ID
       await databases.updateDocument(
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
-        documentId,
-        { status: "starting" },
+        battleRoomId,
+        {
+          gameRoomId: gameRoom.$id,
+          status: "active",
+          updatedAt: new Date().toISOString(),
+        },
       );
 
       return gameRoom.$id;
     } catch (error) {
       console.error("Error starting battle game:", error);
-      throw new Error("Failed to start game");
+      throw error;
+    }
+  }
+
+  /**
+   * Cancel battle room
+   */
+  static async cancelBattleRoom(battleRoomId: string): Promise<void> {
+    try {
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.BATTLE_ROOMS,
+        battleRoomId,
+        {
+          status: "cancelled",
+          updatedAt: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      console.error("Error cancelling battle room:", error);
+      throw new Error("Failed to cancel room");
     }
   }
 

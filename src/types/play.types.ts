@@ -47,14 +47,15 @@ export interface BattleRoom extends Models.Document {
   hostId: string;
   hostUsername: string;
   hostTier: number;
-  opponentId?: string;
-  opponentUsername?: string;
-  opponentTier?: number;
+  opponentId?: string | null;
+  opponentUsername?: string | null;
+  opponentTier?: number | null;
   subject: Subject;
   duration: Duration;
-  status: "waiting" | "ready" | "starting" | "active";
+  status: "waiting" | "ready" | "starting" | "active" | "cancelled";
   hostReady: boolean;
   opponentReady: boolean;
+  gameRoomId: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -64,11 +64,7 @@ const TournamentDetail = () => (
     <h1>Tournament Detail</h1>
   </div>
 );
-const Leaderboard = () => (
-  <div className="p-8">
-    <h1>Leaderboard</h1>
-  </div>
-);
+import Leaderboard from "./pages/Leaderboard";
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
