@@ -12,6 +12,9 @@ import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
 import Play from "./pages/Play";
 import GameRoom from "./pages/GameRoom";
+import Tournaments from "./pages/Tournaments";
+import TournamentDetail from "./pages/TournamentDetail";
+import Leaderboard from "./pages/Leaderboard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,17 +57,6 @@ const Dashboard = () => (
     <h1>Dashboard</h1>
   </div>
 );
-const Tournaments = () => (
-  <div className="p-8">
-    <h1>Tournaments</h1>
-  </div>
-);
-const TournamentDetail = () => (
-  <div className="p-8">
-    <h1>Tournament Detail</h1>
-  </div>
-);
-import Leaderboard from "./pages/Leaderboard";
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,

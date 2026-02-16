@@ -1,6 +1,3 @@
-// src/components/game/Timer.tsx
-
-import React from "react";
 import { motion } from "framer-motion";
 
 interface TimerProps {

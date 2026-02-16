@@ -1,7 +1,4 @@
-// src/components/game/QuestionCard.tsx
-
-import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { AnswerButton } from "./AnswerButton";
 import type { Question } from "@/types/game.types";
 

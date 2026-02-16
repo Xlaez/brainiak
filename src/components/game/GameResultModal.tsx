@@ -1,6 +1,6 @@
 // src/components/game/GameResultModal.tsx
 
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star, ArrowRight, Home, RefreshCcw } from "lucide-react";
 import confetti from "canvas-confetti";

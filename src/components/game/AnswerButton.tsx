@@ -1,6 +1,3 @@
-// src/components/game/AnswerButton.tsx
-
-import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X } from "lucide-react";
 

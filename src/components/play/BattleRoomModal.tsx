@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Share2, X, Check, Loader2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export function BattleRoomModal({
   const battleRoom = useBattleRoom(currentBattleRoomId || undefined);
 
   // Create room on mount if in create mode
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen && mode === "create" && config && !currentBattleRoomId) {
       battleRoom.createRoom.mutate(config, {
         onSuccess: (room) => {
@@ -214,16 +214,17 @@ export function BattleRoomModal({
                           <Copy className="w-5 h-5" />
                         </Button>
 
-                        {navigator.share && (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={handleShare}
-                            className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-500/10 hover:text-blue-500 transition-all"
-                          >
-                            <Share2 className="w-5 h-5" />
-                          </Button>
-                        )}
+                        {typeof navigator !== "undefined" &&
+                          typeof navigator.share === "function" && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={handleShare}
+                              className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-700/50 hover:bg-blue-500/10 hover:text-blue-500 transition-all"
+                            >
+                              <Share2 className="w-5 h-5" />
+                            </Button>
+                          )}
                       </div>
                     )}
                   </div>

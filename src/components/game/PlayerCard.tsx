@@ -1,6 +1,3 @@
-// src/components/game/PlayerCard.tsx
-
-import React from "react";
 import { motion } from "framer-motion";
 import { Trophy, Zap } from "lucide-react";
 import type { PlayerState } from "@/types/game.types";

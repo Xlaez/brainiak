@@ -1,6 +1,6 @@
 import { account, databases, COLLECTIONS, DATABASE_ID } from "@/lib/appwrite";
 import { ID, Query } from "appwrite";
-import type { UserProfile } from "@/types/user.types";
+import type { UserProfile } from "@/types/profile.types";
 
 export const authService = {
   async getCurrentUser() {

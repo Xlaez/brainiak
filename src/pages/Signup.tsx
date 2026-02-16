@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/authStore";
 import { authService } from "@/services/auth.service";
@@ -45,7 +45,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const { setUser, setProfile } = useAuthStore();
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
