@@ -305,6 +305,17 @@ export class GameService {
         ? (new Date().getTime() - new Date(room.startTime).getTime()) / 1000
         : 0;
 
+      // If this is a tournament match, update tournament
+      if (room.tournamentId && room.tournamentMatchId) {
+        await this.updateTournamentMatch(
+          room.tournamentId,
+          room.tournamentMatchId,
+          winnerId,
+          room.player1Score,
+          room.player2Score,
+        );
+      }
+
       return {
         winner,
         player1FinalScore: room.player1Score,
@@ -321,6 +332,36 @@ export class GameService {
     } catch (error) {
       console.error("[GameService] Error ending game:", error);
       throw new Error("Failed to end game");
+    }
+  }
+
+  /**
+   * Update tournament match after game completion
+   */
+  private static async updateTournamentMatch(
+    tournamentId: string,
+    matchId: string,
+    winnerId: string | null,
+    player1Score: number,
+    player2Score: number,
+  ): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependency
+      const { TournamentService } =
+        await import("@/services/tournament.service");
+
+      await TournamentService.completeMatch(
+        tournamentId,
+        matchId,
+        winnerId,
+        player1Score,
+        player2Score,
+      );
+
+      // Start next match
+      await TournamentService.startNextMatch(tournamentId);
+    } catch (error) {
+      console.error("Error updating tournament match:", error);
     }
   }
 

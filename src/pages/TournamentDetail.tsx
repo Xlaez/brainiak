@@ -1,66 +1,77 @@
+// src/pages/TournamentDetail.tsx
+
 import { useParams, useNavigate } from "@tanstack/react-router";
-import { useTournament } from "@/hooks/useTournaments";
-import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TournamentLobby } from "@/components/tournaments/TournamentLobby";
+import { TournamentStandings } from "@/components/tournaments/TournamentStandings";
+import { TournamentChat } from "@/components/tournaments/TournamentChat";
+import { useTournament } from "@/hooks/useTournaments";
 
 export default function TournamentDetail() {
   const { tournamentId } = useParams({ from: "/tournaments/$tournamentId" });
   const navigate = useNavigate();
-  const { data: tournament, isLoading, error } = useTournament(tournamentId);
+
+  const { data: tournament, isLoading, refetch } = useTournament(tournamentId);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">
+            Loading tournament...
+          </p>
+        </div>
       </div>
     );
   }
 
-  if (error || !tournament) {
+  if (!tournament) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <h1 className="text-2xl font-bold mb-4">Tournament not found</h1>
-        <Button onClick={() => navigate({ to: "/tournaments" })}>
-          Back to Tournaments
-        </Button>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+            Tournament Not Found
+          </h2>
+          <Button
+            onClick={() => navigate({ to: "/tournaments" })}
+            className="mt-4"
+          >
+            Back to Tournaments
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
         <Button
-          variant="ghost"
           onClick={() => navigate({ to: "/tournaments" })}
-          className="mb-8 gap-2"
+          variant="ghost"
+          className="mb-6 hover:bg-slate-100 dark:hover:bg-slate-800"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Listing
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Tournaments
         </Button>
 
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-8 shadow-xl">
-          <h1 className="text-3xl font-bold mb-4">{tournament.name}</h1>
-          <p className="text-slate-600 dark:text-slate-400 mb-8">
-            This is Part 1. Tournament details and lobby logic will be
-            implemented in Part 2.
-          </p>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-6">
+            <TournamentLobby tournament={tournament} onRefresh={refetch} />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl">
-              <span className="text-xs text-slate-500 uppercase font-bold">
-                Status
-              </span>
-              <p className="font-bold text-lg uppercase">{tournament.status}</p>
-            </div>
-            <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl">
-              <span className="text-xs text-slate-500 uppercase font-bold">
-                Players
-              </span>
-              <p className="font-bold text-lg">
-                {tournament.participants.length}/6
-              </p>
-            </div>
+            {tournament.status !== "waiting" && (
+              <TournamentStandings tournament={tournament} />
+            )}
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-1">
+            <TournamentChat tournament={tournament} onRefresh={refetch} />
           </div>
         </div>
       </div>

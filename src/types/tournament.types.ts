@@ -57,6 +57,9 @@ export interface Tournament extends Models.Document {
   matches: TournamentMatch[];
   standings: TournamentStanding[];
   chatMessages: TournamentChatMessage[];
+  currentMatchIndex: number;
+  matchesCompleted: number;
+  totalMatches: number;
   winnerId?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;

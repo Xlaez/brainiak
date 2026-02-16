@@ -19,6 +19,8 @@ export interface GameRoom extends Models.Document {
   startTime: string | null;
   endTime: string | null;
   winnerId: string | null;
+  tournamentId?: string | null;
+  tournamentMatchId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -187,6 +187,8 @@ async function setupCollections() {
         { key: "gameType", type: "string", size: 20, required: true },
         { key: "subject", type: "string", size: 30, required: true },
         { key: "duration", type: "integer", required: true },
+        { key: "tournamentId", type: "string", size: 36, required: false },
+        { key: "tournamentMatchId", type: "string", size: 36, required: false },
         { key: "createdAt", type: "string", size: 50, required: true },
         { key: "updatedAt", type: "string", size: 50, required: true },
       ],
@@ -287,6 +289,19 @@ async function setupCollections() {
           array: true,
         },
         { key: "duration", type: "integer", required: true },
+        {
+          key: "currentMatchIndex",
+          type: "integer",
+          required: false,
+          default: 0,
+        },
+        {
+          key: "matchesCompleted",
+          type: "integer",
+          required: false,
+          default: 0,
+        },
+        { key: "totalMatches", type: "integer", required: false, default: 0 },
         { key: "entryLimit", type: "integer", required: true },
         {
           key: "participants",

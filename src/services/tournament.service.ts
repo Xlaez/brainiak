@@ -26,6 +26,9 @@ interface TournamentDocument extends Models.Document {
   matches: string[];
   standings: string[];
   chatMessages: string[];
+  currentMatchIndex: number;
+  matchesCompleted: number;
+  totalMatches: number;
   winnerId?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -82,6 +85,9 @@ export class TournamentService {
           matches: [],
           standings: [],
           chatMessages: [],
+          currentMatchIndex: 0,
+          matchesCompleted: 0,
+          totalMatches: 0,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -246,6 +252,11 @@ export class TournamentService {
           updatedData,
         );
 
+      if (shouldStart) {
+        // Start the first match automatically
+        await this.startNextMatch(tournamentId);
+      }
+
       return this.parseTournament(updatedTournament);
     } catch (error) {
       console.error("Error joining tournament:", error);
@@ -386,6 +397,332 @@ export class TournamentService {
   }
 
   /**
+   * Start next match in tournament (sequential mode)
+   */
+  static async startNextMatch(
+    tournamentId: string,
+  ): Promise<TournamentMatch | null> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+
+      if (!tournament) {
+        throw new Error("Tournament not found");
+      }
+
+      if (tournament.status !== "active") {
+        throw new Error("Tournament is not active");
+      }
+
+      // Find first pending match
+      const nextMatch = tournament.matches.find((m) => m.status === "pending");
+
+      if (!nextMatch) {
+        // No more pending matches - tournament complete
+        await this.completeTournament(tournamentId);
+        return null;
+      }
+
+      // Update match status to active
+      const updatedMatches = tournament.matches.map((m) =>
+        m.matchId === nextMatch.matchId
+          ? { ...m, status: "active" as const }
+          : m,
+      );
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          matches: updatedMatches.map((m) => JSON.stringify(m)),
+          currentMatchIndex: tournament.matches.indexOf(nextMatch),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      // Create game room for this match
+      await this.createMatchGameRoom(tournamentId, nextMatch, tournament);
+
+      return nextMatch;
+    } catch (error) {
+      console.error("Error starting next match:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create game room for a tournament match
+   */
+  private static async createMatchGameRoom(
+    tournamentId: string,
+    match: TournamentMatch,
+    tournament: Tournament,
+  ): Promise<string> {
+    try {
+      // Get player data
+      const player1 = tournament.participants.find(
+        (p) => p.userId === match.player1Id,
+      );
+      const player2 = tournament.participants.find(
+        (p) => p.userId === match.player2Id,
+      );
+
+      if (!player1 || !player2) {
+        throw new Error("Match players not found");
+      }
+
+      // Select random subject from tournament subjects
+      const randomSubject =
+        tournament.subjects[
+          Math.floor(Math.random() * tournament.subjects.length)
+        ];
+
+      const gameRoomId = ID.unique();
+      const gameRoom = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTIONS.GAME_ROOMS,
+        gameRoomId,
+        {
+          roomId: gameRoomId,
+          gameType: "tournament",
+          status: "waiting",
+          player1Id: player1.userId,
+          player2Id: player2.userId,
+          player1Tier: player1.tier,
+          player2Tier: player2.tier,
+          player1Score: 0,
+          player2Score: 0,
+          currentQuestionIndex: 0,
+          questions: [], // Will be populated when game starts
+          subject: randomSubject,
+          duration: tournament.duration,
+          tournamentId,
+          tournamentMatchId: match.matchId,
+          startTime: null,
+          endTime: null,
+          winnerId: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      // Update match with game room ID
+      const updatedMatches = tournament.matches.map((m) =>
+        m.matchId === match.matchId ? { ...m, gameRoomId: gameRoom.$id } : m,
+      );
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          matches: updatedMatches.map((m) => JSON.stringify(m)),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      return gameRoom.$id;
+    } catch (error) {
+      console.error("Error creating match game room:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Complete a tournament match and update standings
+   */
+  static async completeMatch(
+    tournamentId: string,
+    matchId: string,
+    winnerId: string | null,
+    player1Score: number,
+    player2Score: number,
+  ): Promise<void> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+
+      if (!tournament) {
+        throw new Error("Tournament not found");
+      }
+
+      // Update match
+      const updatedMatches = tournament.matches.map((m) => {
+        if (m.matchId === matchId) {
+          return {
+            ...m,
+            status: "completed" as const,
+            winnerId,
+            player1Score,
+            player2Score,
+            completedAt: new Date().toISOString(),
+          };
+        }
+        return m;
+      });
+
+      // Update standings
+      const updatedStandings = this.updateStandings(
+        tournament.standings,
+        tournament.matches.find((m) => m.matchId === matchId)!,
+        winnerId,
+        player1Score,
+        player2Score,
+      );
+
+      const completedCount = updatedMatches.filter(
+        (m) => m.status === "completed",
+      ).length;
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          matches: updatedMatches.map((m) => JSON.stringify(m)),
+          standings: updatedStandings.map((s) => JSON.stringify(s)),
+          matchesCompleted: completedCount,
+          updatedAt: new Date().toISOString(),
+        },
+      );
+
+      // Check if tournament is complete
+      if (completedCount === tournament.matches.length) {
+        await this.completeTournament(tournamentId);
+      }
+    } catch (error) {
+      console.error("Error completing match:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update standings after a match
+   */
+  private static updateStandings(
+    currentStandings: TournamentStanding[],
+    match: TournamentMatch,
+    winnerId: string | null,
+    player1Score: number,
+    player2Score: number,
+  ): TournamentStanding[] {
+    return currentStandings.map((standing) => {
+      if (standing.userId === match.player1Id) {
+        return {
+          ...standing,
+          totalPoints: standing.totalPoints + player1Score,
+          wins: standing.wins + (winnerId === match.player1Id ? 1 : 0),
+          losses: standing.losses + (winnerId === match.player2Id ? 1 : 0),
+          draws: standing.draws + (winnerId === null ? 1 : 0),
+        };
+      }
+
+      if (standing.userId === match.player2Id) {
+        return {
+          ...standing,
+          totalPoints: standing.totalPoints + player2Score,
+          wins: standing.wins + (winnerId === match.player2Id ? 1 : 0),
+          losses: standing.losses + (winnerId === match.player1Id ? 1 : 0),
+          draws: standing.draws + (winnerId === null ? 1 : 0),
+        };
+      }
+
+      return standing;
+    });
+  }
+
+  /**
+   * Complete tournament
+   */
+  private static async completeTournament(tournamentId: string): Promise<void> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+
+      if (!tournament) return;
+
+      // Sort standings by total points (descending)
+      const sortedStandings = [...tournament.standings].sort(
+        (a, b) => b.totalPoints - a.totalPoints,
+      );
+
+      const winner = sortedStandings[0];
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          status: "completed",
+          standings: sortedStandings.map((s) => JSON.stringify(s)),
+          winnerId: winner.userId,
+          completedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      console.error("Error completing tournament:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get current/next match for a player
+   */
+  static async getPlayerNextMatch(
+    tournamentId: string,
+    userId: string,
+  ): Promise<TournamentMatch | null> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+
+      if (!tournament) return null;
+
+      // Find active match involving this player
+      const activeMatch = tournament.matches.find(
+        (m) =>
+          m.status === "active" &&
+          (m.player1Id === userId || m.player2Id === userId),
+      );
+
+      if (activeMatch) return activeMatch;
+
+      // Find next pending match involving this player
+      const nextMatch = tournament.matches.find(
+        (m) =>
+          m.status === "pending" &&
+          (m.player1Id === userId || m.player2Id === userId),
+      );
+
+      return nextMatch || null;
+    } catch (error) {
+      console.error("Error getting player next match:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get tournament progress
+   */
+  static getTournamentProgress(tournament: Tournament): {
+    completedMatches: number;
+    totalMatches: number;
+    percentage: number;
+  } {
+    const completedMatches = tournament.matches.filter(
+      (m) => m.status === "completed",
+    ).length;
+
+    const totalMatches = tournament.matches.length;
+    const percentage =
+      totalMatches > 0 ? (completedMatches / totalMatches) * 100 : 0;
+
+    return {
+      completedMatches,
+      totalMatches,
+      percentage,
+    };
+  }
+
+  /**
    * Search tournaments by name
    */
   static async searchTournaments(query: string): Promise<Tournament[]> {
@@ -425,6 +762,9 @@ export class TournamentService {
       chatMessages: (doc.chatMessages || []).map((c: any) =>
         typeof c === "string" ? JSON.parse(c) : c,
       ),
+      currentMatchIndex: doc.currentMatchIndex || 0,
+      matchesCompleted: doc.matchesCompleted || 0,
+      totalMatches: doc.totalMatches || 0,
     } as Tournament;
   }
 }

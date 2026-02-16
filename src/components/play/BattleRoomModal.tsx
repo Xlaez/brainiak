@@ -7,6 +7,7 @@ import { useBattleRoom } from "@/hooks/useBattleRoom";
 import type { GameConfiguration } from "@/types/play.types";
 import { SUBJECTS, DURATIONS } from "@/types/play.types";
 import { toast } from "sonner";
+import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 
 interface BattleRoomModalProps {
   isOpen: boolean;
@@ -272,9 +273,10 @@ export function BattleRoomModal({
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                        {battleRoom.room.hostUsername.charAt(0)}
-                      </div>
+                      <ProfileAvatar
+                        username={battleRoom.room.hostUsername}
+                        size="sm"
+                      />
                       <span className="font-black text-xs text-slate-900 dark:text-white uppercase tracking-tight">
                         {battleRoom.room.hostUsername}
                         {battleRoom.isHost && (
@@ -307,9 +309,12 @@ export function BattleRoomModal({
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-                          {battleRoom.room.opponentUsername?.charAt(0)}
-                        </div>
+                        <ProfileAvatar
+                          username={
+                            battleRoom.room.opponentUsername || "Opponent"
+                          }
+                          size="sm"
+                        />
                         <span className="font-black text-xs text-slate-900 dark:text-white uppercase tracking-tight">
                           {battleRoom.room.opponentUsername}
                           {battleRoom.isOpponent && (

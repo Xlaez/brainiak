@@ -7,6 +7,7 @@ import { getSubjectDisplayName, getSubjectIcon } from "@/lib/profile.utils";
 import { useAuthStore } from "@/stores/authStore";
 import { useJoinTournament } from "@/hooks/useTournaments";
 import { useNavigate } from "@tanstack/react-router";
+import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 
 interface TournamentCardProps {
   tournament: Tournament;
@@ -134,21 +135,15 @@ export function TournamentCard({ tournament, delay = 0 }: TournamentCardProps) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex -space-x-2">
           {tournament.participants.slice(0, 5).map((participant, index) => (
-            <div
+            <ProfileAvatar
               key={participant.userId}
-              className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 ring-2 ring-white dark:ring-slate-800 flex items-center justify-center text-white text-[10px] font-semibold overflow-hidden"
+              username={participant.username}
+              avatarUrl={participant.avatarUrl}
+              tier={participant.tier}
+              size="sm"
+              className="-ml-2 first:ml-0"
               style={{ zIndex: 5 - index }}
-            >
-              {participant.avatarUrl ? (
-                <img
-                  src={participant.avatarUrl}
-                  alt={participant.username}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                participant.username.charAt(0).toUpperCase()
-              )}
-            </div>
+            />
           ))}
 
           {tournament.participants.length > 5 && (
