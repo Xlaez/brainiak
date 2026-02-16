@@ -35,8 +35,10 @@ export interface TournamentStanding {
 }
 
 export interface TournamentChatMessage {
+  messageId: string;
   userId: string;
   username: string;
+  avatarUrl?: string;
   message: string;
   timestamp: string;
 }

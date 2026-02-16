@@ -10,6 +10,7 @@ import type {
   TournamentMatch,
   TournamentStanding,
   TournamentStatus,
+  TournamentChatMessage,
 } from "@/types/tournament.types";
 
 interface TournamentDocument extends Models.Document {
@@ -720,6 +721,119 @@ export class TournamentService {
       totalMatches,
       percentage,
     };
+  }
+
+  /**
+   * Send chat message in tournament
+   */
+  static async sendChatMessage(
+    tournamentId: string,
+    userId: string,
+    username: string,
+    message: string,
+    avatarUrl?: string,
+  ): Promise<void> {
+    try {
+      // Validation
+      if (!message.trim()) {
+        throw new Error("Message cannot be empty");
+      }
+
+      if (message.length > 500) {
+        throw new Error("Message too long (max 500 characters)");
+      }
+
+      const tournamentDoc = await databases.getDocument<TournamentDocument>(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+      );
+
+      const tournament = this.parseTournament(tournamentDoc);
+
+      if (!tournament) {
+        throw new Error("Tournament not found");
+      }
+
+      // Check if user is participant
+      const isParticipant = tournament.participants.some(
+        (p) => p.userId === userId,
+      );
+
+      if (!isParticipant) {
+        throw new Error("Only participants can send messages");
+      }
+
+      const chatMessage: TournamentChatMessage = {
+        messageId: ID.unique(),
+        userId,
+        username,
+        avatarUrl,
+        message: message.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      const updatedMessages = [...tournament.chatMessages, chatMessage];
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          chatMessages: updatedMessages.map((m) => JSON.stringify(m)),
+          updatedAt: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      console.error("Error sending chat message:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get chat messages
+   */
+  static getChatMessages(
+    tournament: Tournament,
+    limit?: number,
+  ): TournamentChatMessage[] {
+    const messages = tournament.chatMessages || [];
+
+    if (limit) {
+      return messages.slice(-limit); // Get last N messages
+    }
+
+    return messages;
+  }
+
+  /**
+   * Clear chat (admin only)
+   */
+  static async clearChat(tournamentId: string, userId: string): Promise<void> {
+    try {
+      const tournament = await this.getTournament(tournamentId);
+
+      if (!tournament) {
+        throw new Error("Tournament not found");
+      }
+
+      if (tournament.creatorId !== userId) {
+        throw new Error("Only tournament creator can clear chat");
+      }
+
+      await databases.updateDocument(
+        DATABASE_ID,
+        COLLECTIONS.TOURNAMENTS,
+        tournamentId,
+        {
+          chatMessages: [],
+          updatedAt: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      console.error("Error clearing chat:", error);
+      throw error;
+    }
   }
 
   /**

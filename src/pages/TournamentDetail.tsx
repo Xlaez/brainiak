@@ -6,13 +6,23 @@ import { Button } from "@/components/ui/button";
 import { TournamentLobby } from "@/components/tournaments/TournamentLobby";
 import { TournamentStandings } from "@/components/tournaments/TournamentStandings";
 import { TournamentChat } from "@/components/tournaments/TournamentChat";
+import { WinnerModal } from "@/components/tournaments/WinnerModal";
 import { useTournament } from "@/hooks/useTournaments";
+import { useState, useEffect } from "react";
 
 export default function TournamentDetail() {
   const { tournamentId } = useParams({ from: "/tournaments/$tournamentId" });
   const navigate = useNavigate();
 
   const { data: tournament, isLoading, refetch } = useTournament(tournamentId);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
+
+  // Show winner modal when tournament completes
+  useEffect(() => {
+    if (tournament?.status === "completed" && !showWinnerModal) {
+      setShowWinnerModal(true);
+    }
+  }, [tournament?.status, showWinnerModal]);
 
   if (isLoading) {
     return (
@@ -75,6 +85,14 @@ export default function TournamentDetail() {
           </div>
         </div>
       </div>
+
+      {tournament?.status === "completed" && (
+        <WinnerModal
+          tournament={tournament}
+          isOpen={showWinnerModal}
+          onClose={() => setShowWinnerModal(false)}
+        />
+      )}
     </div>
   );
 }
