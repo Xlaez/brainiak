@@ -19,6 +19,8 @@ export interface GameRoom extends Models.Document {
   startTime: string | null;
   endTime: string | null;
   winnerId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Question extends Models.Document {
@@ -32,6 +34,7 @@ export interface Question extends Models.Document {
   optionD: string;
   correctAnswer: "A" | "B" | "C" | "D";
   timesUsed: number;
+  createdAt?: string;
 }
 
 export interface GameAnswer extends Models.Document {

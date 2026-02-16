@@ -262,6 +262,7 @@ export class PlayService {
           hostReady: false,
           opponentReady: false,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       );
     } catch (error) {
@@ -316,6 +317,7 @@ export class PlayService {
           opponentId: userId,
           opponentUsername: username,
           opponentTier: tier,
+          updatedAt: new Date().toISOString(),
         },
       );
     } catch (error: any) {
@@ -347,6 +349,7 @@ export class PlayService {
         documentId,
         {
           [isHost ? "hostReady" : "opponentReady"]: isReady,
+          updatedAt: new Date().toISOString(),
         },
       );
     } catch (error) {
@@ -364,7 +367,7 @@ export class PlayService {
         DATABASE_ID,
         COLLECTIONS.BATTLE_ROOMS,
         documentId,
-        { status: "cancelled" },
+        { status: "cancelled", updatedAt: new Date().toISOString() },
       );
     } catch (error) {
       console.error("Error leaving battle room:", error);
@@ -420,6 +423,7 @@ export class PlayService {
           player2Score: 0,
           currentQuestionIndex: 0,
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         },
       );
 

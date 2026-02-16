@@ -56,6 +56,7 @@ export interface BattleRoom extends Models.Document {
   hostReady: boolean;
   opponentReady: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface MatchmakingState {
