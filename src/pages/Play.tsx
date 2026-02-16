@@ -29,8 +29,6 @@ export default function Play() {
 
   // Battle room hook
   const battle = useBattleRoom(matchmaking.config?.inviteCode);
-  // Wait, I need to pass the actual roomId if available.
-  // Actually, I'll pass battle.room?.$id if it's created.
 
   const canStartSearch = useMemo(() => {
     return (

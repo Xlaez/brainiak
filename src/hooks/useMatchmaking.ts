@@ -31,8 +31,26 @@ export function useMatchmaking() {
       console.log(`[Matchmaking] Joining queue for ${username}...`);
       return PlayService.joinQueue(user.$id, username, tier, config);
     },
-    onSuccess: (queueEntry, config) => {
+    onSuccess: async (queueEntry, config) => {
       console.log(`[Matchmaking] Successfully joined queue: ${queueEntry.$id}`);
+
+      // Handle instant match (if we were the host and found someone immediately)
+      if (queueEntry.status === "matched") {
+        console.log("[Matchmaking] Instant match detected!");
+        const result = await PlayService.checkMatch(queueEntry.$id);
+        if (result.matched && result.gameRoomId) {
+          toast.success("Match found! Joining game...");
+          setState({
+            isSearching: false,
+            queueId: undefined,
+            timeElapsed: 0,
+            config,
+          });
+          navigate({ to: `/game/${result.gameRoomId}` });
+          return;
+        }
+      }
+
       setState({
         isSearching: true,
         queueId: queueEntry.$id,
@@ -52,15 +70,15 @@ export function useMatchmaking() {
   // Consolidated searching state
   const isActuallySearching = state.isSearching || joinQueueMutation.isPending;
 
-  // Leave queue on unmount or before starting new search
+  // Leave queue on unmount ONLY if we are not matched
   useEffect(() => {
     return () => {
-      if (state.queueId) {
+      if (state.queueId && state.isSearching) {
         console.log(`[Matchmaking] Cleaning up queue: ${state.queueId}`);
         PlayService.leaveQueue(state.queueId).catch(console.error);
       }
     };
-  }, [state.queueId]);
+  }, [state.queueId, state.isSearching]);
 
   // Timer for search duration
   useEffect(() => {

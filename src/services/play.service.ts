@@ -7,9 +7,6 @@ import type {
 } from "@/types/play.types";
 
 export class PlayService {
-  /**
-   * Join matchmaking queue for Classic or Control mode
-   */
   static async joinQueue(
     userId: string,
     username: string,
@@ -17,7 +14,6 @@ export class PlayService {
     config: GameConfiguration,
   ): Promise<QueueEntry> {
     try {
-      // 1. Cleanup ANY existing entry for this user by their ID
       try {
         await databases.deleteDocument(
           DATABASE_ID,
@@ -29,7 +25,6 @@ export class PlayService {
         // Ignore if document with userId doesn't exist
       }
 
-      // 2. Also cleanup by Query just in case there are orphaned entries with random IDs
       const existing = await databases.listDocuments<QueueEntry>(
         DATABASE_ID,
         COLLECTIONS.MATCHMAKING_QUEUE,
@@ -48,7 +43,6 @@ export class PlayService {
         }
       }
 
-      // 3. Create the new queue entry using userId as the Document ID
       const newEntry = await databases.createDocument<QueueEntry>(
         DATABASE_ID,
         COLLECTIONS.MATCHMAKING_QUEUE,
@@ -67,36 +61,33 @@ export class PlayService {
         },
       );
 
-      // 4. Immediately try to find a match
       console.log(
         `[PlayService] Searching for compatible opponents for ${userId}...`,
       );
       await this.findMatch(newEntry);
 
-      return newEntry;
+      // Re-fetch to get any status updates from findMatch
+      return await databases.getDocument<QueueEntry>(
+        DATABASE_ID,
+        COLLECTIONS.MATCHMAKING_QUEUE,
+        newEntry.$id,
+      );
     } catch (error: any) {
       console.error("Error joining queue:", error);
       throw new Error(error.message || "Failed to join matchmaking queue");
     }
   }
 
-  /**
-   * Internal method to find and link with an opponent
-   */
   private static async findMatch(userEntry: QueueEntry): Promise<void> {
     try {
-      // Look for opponents with same settings who are 'waiting'
       const queries = [
         Query.equal("status", "waiting"),
         Query.equal("gameType", userEntry.gameType),
         Query.equal("subject", userEntry.subject),
         Query.equal("duration", userEntry.duration),
         Query.notEqual("userId", userEntry.userId), // Don't match with self
-        Query.limit(1), // Just one for now
+        Query.limit(1),
       ];
-
-      // If control mode, check if we match their selected tier
-      // (This is a bit simplified: matching logic for Control mode could be more complex)
 
       const opponents = await databases.listDocuments<QueueEntry>(
         DATABASE_ID,
@@ -110,8 +101,6 @@ export class PlayService {
           `[PlayService] Match found! Opponent: ${opponent.username} (${opponent.userId})`,
         );
 
-        // We found them, so WE are the host for the game room
-        // 1. Get random questions for the game
         const questionsResponse = await databases.listDocuments(
           DATABASE_ID,
           COLLECTIONS.QUESTIONS,
@@ -126,7 +115,6 @@ export class PlayService {
 
         const questionIds = questionsResponse.documents.map((q) => q.$id);
 
-        // 2. Create the Game Room
         const gameRoom = await databases.createDocument(
           DATABASE_ID,
           COLLECTIONS.GAME_ROOMS,
@@ -144,12 +132,13 @@ export class PlayService {
             status: "active", // Start immediately for matchmaking
             gameType: userEntry.gameType,
             subject: userEntry.subject,
+            duration: userEntry.duration,
             startTime: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
         );
 
-        // 3. Update BOTH queue entries to matched
-        // Update Opponent first so they get the notification
         await databases.updateDocument(
           DATABASE_ID,
           COLLECTIONS.MATCHMAKING_QUEUE,
@@ -160,7 +149,6 @@ export class PlayService {
           },
         );
 
-        // Update Self
         await databases.updateDocument(
           DATABASE_ID,
           COLLECTIONS.MATCHMAKING_QUEUE,
@@ -399,6 +387,19 @@ export class PlayService {
         throw new Error("Both players must be ready");
       }
 
+      // 1. Get random questions for the game
+      const questionsResponse = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTIONS.QUESTIONS,
+        [Query.equal("subject", room.subject), Query.limit(5)],
+      );
+
+      if (questionsResponse.total === 0) {
+        throw new Error("No questions found for this subject.");
+      }
+
+      const questionIds = questionsResponse.documents.map((q) => q.$id);
+
       // Create game room
       const gameRoom = await databases.createDocument(
         DATABASE_ID,
@@ -414,6 +415,7 @@ export class PlayService {
           player2Tier: room.opponentTier,
           subject: room.subject,
           duration: room.duration,
+          questions: questionIds,
           player1Score: 0,
           player2Score: 0,
           currentQuestionIndex: 0,
@@ -436,24 +438,12 @@ export class PlayService {
     }
   }
 
-  /**
-   * Validate user can select a tier (Control mode)
-   */
   static canSelectTier(userTier: number, targetTier: number): boolean {
     // User can only select tiers equal to or lower than their own
     // Remember: Lower number = higher tier (Tier 1 is best, Tier 10 is basic)
-    // Wait, the instruction says: "Tier 7 user can only select Tier 1-7"
-    // So targetTier should be less than or equal to userTier?
-    // Let's re-read: "VALIDATION: Can only select tier ≤ their own tier (cannot select lower tiers)"
-    // If I'm Tier 7, I can select 1, 2, 3, 4, 5, 6, 7.
-    // 8, 9, 10 are "lower" tiers (higher numbers).
-    // So targetTier <= userTier is correct.
     return targetTier <= userTier;
   }
 
-  /**
-   * Generate random 6-character invite code
-   */
   private static generateInviteCode(): string {
     const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // No ambiguous chars
     let code = "";

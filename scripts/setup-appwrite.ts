@@ -7,6 +7,7 @@ import {
   Permission,
   ID,
   IndexType,
+  Query,
 } from "node-appwrite";
 import dotenv from "dotenv";
 import path from "path";
@@ -136,6 +137,7 @@ async function setupCollections() {
         { key: "hostReady", type: "boolean", required: true },
         { key: "opponentReady", type: "boolean", required: true },
         { key: "createdAt", type: "string", size: 50, required: true },
+        { key: "updatedAt", type: "string", size: 50, required: true },
       ],
       indexes: [
         {
@@ -172,6 +174,9 @@ async function setupCollections() {
         { key: "winnerId", type: "string", size: 36, required: false },
         { key: "gameType", type: "string", size: 20, required: true },
         { key: "subject", type: "string", size: 30, required: true },
+        { key: "duration", type: "integer", required: true },
+        { key: "createdAt", type: "string", size: 50, required: true },
+        { key: "updatedAt", type: "string", size: 50, required: true },
       ],
       indexes: [
         { key: "player1Id", type: IndexType.Key, attributes: ["player1Id"] },
@@ -190,9 +195,10 @@ async function setupCollections() {
         { key: "optionC", type: "string", size: 500, required: true },
         { key: "optionD", type: "string", size: 500, required: true },
         { key: "correctAnswer", type: "string", size: 1, required: true },
-        { key: "difficulty", type: "integer", required: true },
+        { key: "difficulty", type: "string", size: 20, required: true },
         { key: "subject", type: "string", size: 30, required: true },
         { key: "createdAt", type: "string", size: 50, required: false },
+        { key: "updatedAt", type: "string", size: 50, required: false },
       ],
       indexes: [
         { key: "subject", type: IndexType.Key, attributes: ["subject"] },
@@ -222,19 +228,35 @@ async function setupCollections() {
   ];
 
   for (const coll of collections) {
+    const permissions = [
+      Permission.read(Role.any()),
+      Permission.create(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users()),
+    ];
+
     try {
       console.log(`\n📦 synchronizing collection: ${coll.id}`);
-      await databases.createCollection(DATABASE_ID, coll.id, coll.name, [
-        Permission.read(Role.any()),
-        Permission.create(Role.users()),
-        Permission.update(Role.users()),
-        Permission.delete(Role.users()),
-      ]);
+      await databases.createCollection(
+        DATABASE_ID,
+        coll.id,
+        coll.name,
+        permissions,
+      );
       console.log(`✅ Created collection '${coll.id}'`);
     } catch (e: any) {
-      if (e.code === 409)
-        console.log(`ℹ️ Collection '${coll.id}' already exists.`);
-      else throw e;
+      if (e.code === 409) {
+        console.log(
+          `ℹ️ Collection '${coll.id}' already exists. Updating permissions...`,
+        );
+        await databases.updateCollection(
+          DATABASE_ID,
+          coll.id,
+          coll.name,
+          permissions,
+        );
+        console.log(`  ✅ Updated permissions for '${coll.id}'`);
+      } else throw e;
     }
 
     for (const attr of coll.attributes) {
@@ -254,55 +276,163 @@ async function setupCollections() {
     }
   }
 
-  // Seed some questions if the collection is empty
+  // Seed some questions
   try {
-    const existingQuestions = await databases.listDocuments(
-      DATABASE_ID,
-      "questions",
-      [],
-    );
-    if (existingQuestions.total === 0) {
-      console.log("\n🌱 Seeding sample questions...");
-      const sampleQuestions = [
-        {
-          questionId: ID.unique(),
-          questionText: "What is the capital of France?",
-          optionA: "Berlin",
-          optionB: "Madrid",
-          optionC: "Paris",
-          optionD: "Rome",
-          correctAnswer: "C",
-          difficulty: 1,
-          subject: "geography",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          questionId: ID.unique(),
-          questionText: "Which planet is known as the Red Planet?",
-          optionA: "Venus",
-          optionB: "Mars",
-          optionC: "Jupiter",
-          optionD: "Saturn",
-          correctAnswer: "B",
-          difficulty: 1,
-          subject: "science",
-          createdAt: new Date().toISOString(),
-        },
-        {
-          questionId: ID.unique(),
-          questionText: "What is 15 * 6?",
-          optionA: "80",
-          optionB: "90",
-          optionC: "100",
-          optionD: "110",
-          correctAnswer: "B",
-          difficulty: 2,
-          subject: "maths",
-          createdAt: new Date().toISOString(),
-        },
-      ];
+    console.log("\n🌱 Seeding sample questions...");
+    const sampleQuestions = [
+      {
+        questionId: ID.unique(),
+        questionText: "What is the capital of France?",
+        optionA: "Berlin",
+        optionB: "Madrid",
+        optionC: "Paris",
+        optionD: "Rome",
+        correctAnswer: "C",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which is the largest ocean on Earth?",
+        optionA: "Atlantic Ocean",
+        optionB: "Indian Ocean",
+        optionC: "Arctic Ocean",
+        optionD: "Pacific Ocean",
+        correctAnswer: "D",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which continent is the Sahara Desert located on?",
+        optionA: "Asia",
+        optionB: "Africa",
+        optionC: "South America",
+        optionD: "Australia",
+        correctAnswer: "B",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "What is the capital city of Japan?",
+        optionA: "Seoul",
+        optionB: "Beijing",
+        optionC: "Tokyo",
+        optionD: "Bangkok",
+        correctAnswer: "C",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which is the longest river in the world?",
+        optionA: "Amazon River",
+        optionB: "Nile",
+        optionC: "Yangtze River",
+        optionD: "Mississippi River",
+        correctAnswer: "B",
+        difficulty: "medium",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Mount Everest is located in which mountain range?",
+        optionA: "Andes",
+        optionB: "Rockies",
+        optionC: "Himalayas",
+        optionD: "Alps",
+        correctAnswer: "C",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which country is the largest in the world by land area?",
+        optionA: "Canada",
+        optionB: "China",
+        optionC: "United States",
+        optionD: "Russia",
+        correctAnswer: "D",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which of these is the smallest country in the world?",
+        optionA: "Monaco",
+        optionB: "Vatican City",
+        optionC: "San Marino",
+        optionD: "Liechtenstein",
+        correctAnswer: "B",
+        difficulty: "medium",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText:
+          "The Great Barrier Reef is off the coast of which country?",
+        optionA: "New Zealand",
+        optionB: "Australia",
+        optionC: "Indonesia",
+        optionD: "Philippines",
+        correctAnswer: "B",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which country is known as the Land of the Rising Sun?",
+        optionA: "Thailand",
+        optionB: "Japan",
+        optionC: "Vietnam",
+        optionD: "Norway",
+        correctAnswer: "B",
+        difficulty: "easy",
+        subject: "geography",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "Which planet is known as the Red Planet?",
+        optionA: "Venus",
+        optionB: "Mars",
+        optionC: "Jupiter",
+        optionD: "Saturn",
+        correctAnswer: "B",
+        difficulty: "easy",
+        subject: "science",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        questionId: ID.unique(),
+        questionText: "What is 15 * 6?",
+        optionA: "80",
+        optionB: "90",
+        optionC: "100",
+        optionD: "110",
+        correctAnswer: "B",
+        difficulty: "medium",
+        subject: "maths",
+        createdAt: new Date().toISOString(),
+      },
+    ];
 
-      for (const q of sampleQuestions) {
+    for (const q of sampleQuestions) {
+      const existing = await databases.listDocuments(DATABASE_ID, "questions", [
+        Query.equal("questionText", q.questionText),
+      ]);
+
+      if (existing.total === 0) {
         await databases.createDocument(
           DATABASE_ID,
           "questions",
@@ -310,8 +440,8 @@ async function setupCollections() {
           q,
         );
       }
-      console.log("✅ Seeded 3 questions.");
     }
+    console.log(`✅ Seeded ${sampleQuestions.length} questions.`);
   } catch (e) {
     console.error("❌ Error seeding questions:", e);
   }
