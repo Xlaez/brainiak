@@ -112,6 +112,24 @@ export function useGame(gameRoomId: string) {
     initPlayers();
   }, [gameRoom, questions, user, gameRoomId, navigate]);
 
+  // Sync questions into game state when they load/update
+  useEffect(() => {
+    if (questions && questions.length > 0) {
+      setGameState((prev) => {
+        if (!prev) return null;
+        // Only update if questions are newly loaded or changed
+        if (prev.questions && prev.questions.length === questions.length)
+          return prev;
+
+        return {
+          ...prev,
+          questions,
+          currentQuestion: questions[prev.currentQuestionIndex] || null,
+        };
+      });
+    }
+  }, [questions]);
+
   // Handle both answered logic
   const triggerReveal = useCallback(async () => {
     setGameState((prev) => {
@@ -200,6 +218,8 @@ export function useGame(gameRoomId: string) {
           const isNewQuestion =
             updatedRoom.currentQuestionIndex !== prev.currentQuestionIndex;
 
+          const isCompleted = updatedRoom.status === "completed";
+
           const newState = {
             ...prev,
             gameRoom: updatedRoom,
@@ -208,9 +228,10 @@ export function useGame(gameRoomId: string) {
               prev.questions[updatedRoom.currentQuestionIndex] || null,
             player1: { ...prev.player1, score: updatedRoom.player1Score },
             player2: { ...prev.player2, score: updatedRoom.player2Score },
+            gamePhase: isCompleted ? "completed" : prev.gamePhase,
           };
 
-          if (isNewQuestion) {
+          if (isNewQuestion && !isCompleted) {
             // Reset question-specific state
             newState.userAnswer = null;
             newState.hasSubmittedAnswer = false;
@@ -226,18 +247,11 @@ export function useGame(gameRoomId: string) {
 
           return newState;
         });
-
-        // Check if game ended
-        if (updatedRoom.status === "completed") {
-          setGameState((prev) =>
-            prev ? { ...prev, gamePhase: "completed" } : null,
-          );
-        }
       },
     );
 
     return unsubscribe;
-  }, [gameRoomId]);
+  }, [gameRoomId, queryClient]);
 
   // Subscribe to opponent answers
   useEffect(() => {
@@ -276,12 +290,13 @@ export function useGame(gameRoomId: string) {
             };
           });
 
-          // Check if both answered to move to reveal phase
+          // Check if both answered OR if opponent got it correct
           const bothNowAnswered = await GameService.checkBothAnswered(
             gameRoomId,
             gameState.currentQuestionIndex,
           );
-          if (bothNowAnswered) {
+
+          if (bothNowAnswered || answer.isCorrect) {
             triggerReveal();
           }
         }
@@ -289,11 +304,23 @@ export function useGame(gameRoomId: string) {
     );
 
     return unsubscribe;
-  }, [gameRoomId, gameState?.currentQuestionIndex, user?.$id, triggerReveal]);
+  }, [
+    gameRoomId,
+    gameState?.currentQuestionIndex,
+    user?.$id,
+    triggerReveal,
+    queryClient,
+  ]);
 
   const submitAnswer = useCallback(
     async (selectedAnswer: "A" | "B" | "C" | "D") => {
-      if (!gameState || !user || gameState.hasSubmittedAnswer) return;
+      if (
+        !gameState ||
+        !user ||
+        gameState.hasSubmittedAnswer ||
+        gameState.gamePhase !== "question"
+      )
+        return;
 
       const timeTaken = Date.now() - questionStartTime.current;
       const isCorrect =
@@ -355,7 +382,7 @@ export function useGame(gameRoomId: string) {
           gameState.currentQuestionIndex,
         );
 
-        if (bothAnswered) {
+        if (bothAnswered || isCorrect) {
           triggerReveal();
         }
       } catch (error) {

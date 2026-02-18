@@ -214,7 +214,7 @@ export class GameService {
       const room = await this.getGameRoom(gameRoomId);
       if (!room) throw new Error("Game room not found");
 
-      // Fetch all answers
+      // Calculate results (this part is safe to do multiple times)
       const player1Answers = await databases.listDocuments<GameAnswer>(
         DATABASE_ID,
         COLLECTIONS.GAME_ANSWERS,
@@ -264,7 +264,7 @@ export class GameService {
         winner,
       );
 
-      // Calculate new points and tiers
+      // New points and tiers
       const player1CurrentPoints = await this.getUserPoints(room.player1Id);
       const player2CurrentPoints = await this.getUserPoints(room.player2Id!);
 
@@ -274,45 +274,47 @@ export class GameService {
       const player1NewTier = this.calculateTier(player1NewPoints);
       const player2NewTier = this.calculateTier(player2NewPoints);
 
-      // Update game room
-      await databases.updateDocument(
-        DATABASE_ID,
-        COLLECTIONS.GAME_ROOMS,
-        gameRoomId,
-        {
-          status: "completed",
-          winnerId,
-          endTime: new Date().toISOString(),
-        },
-      );
+      // ONLY update the room and profiles if it's not already completed
+      if (room.status !== "completed") {
+        await databases.updateDocument(
+          DATABASE_ID,
+          COLLECTIONS.GAME_ROOMS,
+          gameRoomId,
+          {
+            status: "completed",
+            winnerId,
+            endTime: new Date().toISOString(),
+          },
+        );
 
-      // Update player profiles
-      await this.updatePlayerProfile(
-        room.player1Id,
-        player1Change,
-        winner === "player1",
-      );
+        // Update player profiles
+        await this.updatePlayerProfile(
+          room.player1Id,
+          player1Change,
+          winner === "player1",
+        );
 
-      await this.updatePlayerProfile(
-        room.player2Id!,
-        player2Change,
-        winner === "player2",
-      );
+        await this.updatePlayerProfile(
+          room.player2Id!,
+          player2Change,
+          winner === "player2",
+        );
+
+        // If this is a tournament match, update tournament
+        if (room.tournamentId && room.tournamentMatchId) {
+          await this.updateTournamentMatch(
+            room.tournamentId,
+            room.tournamentMatchId,
+            winnerId,
+            room.player1Score,
+            room.player2Score,
+          );
+        }
+      }
 
       const gameDuration = room.startTime
         ? (new Date().getTime() - new Date(room.startTime).getTime()) / 1000
         : 0;
-
-      // If this is a tournament match, update tournament
-      if (room.tournamentId && room.tournamentMatchId) {
-        await this.updateTournamentMatch(
-          room.tournamentId,
-          room.tournamentMatchId,
-          winnerId,
-          room.player1Score,
-          room.player2Score,
-        );
-      }
 
       return {
         winner,

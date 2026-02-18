@@ -8,7 +8,7 @@ import { GameResultModal } from "@/components/game/GameResultModal";
 import { useAuthStore } from "@/stores/authStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { GameResult } from "@/types/game.types";
 import { GameService } from "@/services/game.service";
 
@@ -19,10 +19,16 @@ export default function GameRoom() {
   const user = useAuthStore((state) => state.user);
 
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
+  const fetchingRef = useRef(false);
 
   // Fetch results when game ends
   useEffect(() => {
-    if (gameState?.gamePhase === "completed" && !gameResult) {
+    if (
+      gameState?.gamePhase === "completed" &&
+      !gameResult &&
+      !fetchingRef.current
+    ) {
+      fetchingRef.current = true;
       const fetchResults = async () => {
         try {
           // Fetch the completed room data to get final stats
@@ -30,6 +36,7 @@ export default function GameRoom() {
           setGameResult(result);
         } catch (error) {
           console.error("[GameRoom] Error fetching results:", error);
+          fetchingRef.current = false;
         }
       };
 
